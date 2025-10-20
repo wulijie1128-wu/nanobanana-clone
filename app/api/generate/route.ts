@@ -17,11 +17,18 @@ export async function POST(request: NextRequest) {
 
     console.log('API Key exists:', !!apiKey);
     console.log('API Key length:', apiKey?.length);
-    console.log('API Key prefix:', apiKey?.substring(0, 10));
+    console.log('API Key prefix:', apiKey?.substring(0, 12));
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API key not configured' },
+        { error: 'API key not configured. Please set OPENROUTER_API_KEY in environment variables.' },
+        { status: 500 }
+      );
+    }
+
+    if (!apiKey.startsWith('sk-or-v1-')) {
+      return NextResponse.json(
+        { error: 'Invalid API key format. OpenRouter API key must start with "sk-or-v1-"' },
         { status: 500 }
       );
     }
@@ -92,8 +99,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error generating image:', error);
+
+    // Check if it's an authentication error
+    if (error.status === 401 || error.message?.includes('401')) {
+      return NextResponse.json(
+        {
+          error: 'Authentication failed. Please check your OpenRouter API key in Vercel environment variables.',
+          details: error.message
+        },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Failed to generate image' },
+      {
+        error: error.message || 'Failed to generate image',
+        details: error.response?.data || error.toString()
+      },
       { status: 500 }
     );
   }
